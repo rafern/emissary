@@ -990,6 +990,26 @@ impl Config {
             }
         }
 
+        if let Some(emissary_core::Ntcp2Config {
+            port,
+            ..
+        }) = &mut self.ntcp2_config
+        {
+            if let Some(selected) = arguments.ntcp2.ntcp2_port {
+                *port = selected;
+            }
+        }
+
+        if let Some(emissary_core::Ssu2Config {
+            port,
+            ..
+        }) = &mut self.ssu2_config
+        {
+            if let Some(selected) = arguments.ssu2.ssu2_port {
+                *port = selected;
+            }
+        }
+
         self
     }
 }
@@ -998,7 +1018,7 @@ impl Config {
 mod tests {
     use crate::cli::{
         BandwidthOptions, MetricsOptions, PortForwardingOptions, ReseedOptions, TransitOptions,
-        TunnelOptions,
+        TunnelOptions, Ntcp2Options, Ssu2Options,
     };
 
     use super::*;
@@ -1063,6 +1083,12 @@ mod tests {
             bandwidth: BandwidthOptions {
                 bandwidth: None,
                 share_ratio: None,
+            },
+            ntcp2: Ntcp2Options {
+                ntcp2_port: None,
+            },
+            ssu2: Ssu2Options {
+                ssu2_port: None,
             },
         }
     }
