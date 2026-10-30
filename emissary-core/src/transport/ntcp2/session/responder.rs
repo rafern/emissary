@@ -275,6 +275,13 @@ impl Responder {
 
                 ChaChaPoly::new(&remote_key)
                     .decrypt_with_ad(kind.noise_ctx().state(), &mut encap_key)
+                    .inspect_err(|actual_err| {
+                        tracing::error!(
+                            target: LOG_TARGET,
+                            ?actual_err,
+                            "!!! decryption failure for encap key",
+                        );
+                    })
                     .map_err(|_| Ntcp2Error::Chacha)?;
                 kind.noise_ctx().mix_hash(&message[..encap_size]);
 
@@ -298,6 +305,13 @@ impl Responder {
         let mut options = message[offset..].to_vec();
         ChaChaPoly::with_nonce(&remote_key, nonce)
             .decrypt_with_ad(encryption_ctx.noise_ctx().state(), &mut options)
+            .inspect_err(|actual_err| {
+                tracing::error!(
+                    target: LOG_TARGET,
+                    ?actual_err,
+                    "!!! decryption failure for initiator options",
+                );
+            })
             .map_err(|_| Ntcp2Error::Chacha)?;
         remote_key.zeroize();
 
@@ -431,6 +445,13 @@ impl Responder {
 
                 ChaChaPoly::new(&local_key)
                     .encrypt_with_ad_new(kind.noise_ctx().state(), &mut ciphertext)
+                    .inspect_err(|actual_err| {
+                        tracing::error!(
+                            target: LOG_TARGET,
+                            ?actual_err,
+                            "!!! encryption failure for mlkem",
+                        );
+                    })
                     .map_err(|_| Ntcp2Error::Chacha)?;
 
                 // MixHash(ciphertext)
@@ -460,6 +481,13 @@ impl Responder {
 
         ChaChaPoly::new(&local_key)
             .encrypt_with_ad_new(encryption_ctx.noise_ctx().state(), &mut options)
+            .inspect_err(|actual_err| {
+                tracing::error!(
+                    target: LOG_TARGET,
+                    ?actual_err,
+                    "!!! encryption failure for options",
+                );
+            })
             .map_err(|_| Ntcp2Error::Chacha)?;
 
         let (message, offset) = {

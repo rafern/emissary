@@ -239,7 +239,14 @@ impl Initiator {
 
                 ChaChaPoly::with_nonce(&local_key, 0u64)
                     .encrypt_with_ad_new(kind.noise_ctx().state(), &mut encap_key)
-                    .map_err(|_| Ntcp2Error::Chacha)?;
+                    .map_err(|actual_err| {
+                        tracing::error!(
+                            target: LOG_TARGET,
+                            %actual_err,
+                            "!!! failure case 1",
+                        );
+                        Ntcp2Error::Chacha
+                    })?;
 
                 // MixHash(ciphertext)
                 kind.noise_ctx().mix_hash(&encap_key);
@@ -267,7 +274,14 @@ impl Initiator {
 
         ChaChaPoly::with_nonce(&local_key, nonce)
             .encrypt_with_ad_new(encryption_ctx.noise_ctx().state(), &mut options)
-            .map_err(|_| Ntcp2Error::Chacha)?;
+            .map_err(|actual_err| {
+                tracing::error!(
+                    target: LOG_TARGET,
+                    %actual_err,
+                    "!!! failure case 2",
+                );
+                Ntcp2Error::Chacha
+            })?;
         local_key.zeroize();
 
         out.put_slice(&encrypted_x);
@@ -361,7 +375,14 @@ impl Initiator {
                 let mut kem_ciphertext = bytes[32..32 + kem_ciphertext_size].to_vec();
                 ChaChaPoly::new(&remote_key)
                     .decrypt_with_ad(kind.noise_ctx().state(), &mut kem_ciphertext)
-                    .map_err(|_| Ntcp2Error::Chacha)?;
+                    .map_err(|actual_err| {
+                        tracing::error!(
+                            target: LOG_TARGET,
+                            %actual_err,
+                            "!!! failure case 3",
+                        );
+                        Ntcp2Error::Chacha
+                    })?;
 
                 // MixHash(kem_ciphertext_section)
                 kind.noise_ctx().mix_hash(&bytes[32..32 + kem_ciphertext_size]);
@@ -403,7 +424,14 @@ impl Initiator {
             let mut options = bytes[offset..offset + 32].to_vec();
             ChaChaPoly::new(&remote_key)
                 .decrypt_with_ad(encryption_ctx.noise_ctx().state(), &mut options)
-                .map_err(|_| Ntcp2Error::Chacha)?;
+                .map_err(|actual_err| {
+                    tracing::error!(
+                        target: LOG_TARGET,
+                        %actual_err,
+                        "!!! failure case 4",
+                    );
+                    Ntcp2Error::Chacha
+                })?;
 
             // check clock skew
             let options = ResponderOptions::parse(&options).ok_or(Ntcp2Error::InvalidOptions)?;
@@ -482,7 +510,14 @@ impl Initiator {
         let mut cipher = ChaChaPoly::with_nonce(&remote_key, 1);
         cipher
             .encrypt_with_ad_new(encryption_ctx.noise_ctx().state(), &mut s_p_bytes)
-            .map_err(|_| Ntcp2Error::Chacha)?;
+            .map_err(|actual_err| {
+                tracing::error!(
+                    target: LOG_TARGET,
+                    %actual_err,
+                    "!!! failure case 5",
+                );
+                Ntcp2Error::Chacha
+            })?;
 
         // MixHash(ciphertext)
         encryption_ctx.noise_ctx().mix_hash(&s_p_bytes);
@@ -497,7 +532,14 @@ impl Initiator {
             let mut message = MessageBlock::new_router_info(&local_info);
             ChaChaPoly::with_nonce(&k, 0)
                 .encrypt_with_ad_new(encryption_ctx.noise_ctx().state(), &mut message)
-                .map_err(|_| Ntcp2Error::Chacha)?;
+                .map_err(|actual_err| {
+                    tracing::error!(
+                        target: LOG_TARGET,
+                        %actual_err,
+                        "!!! failure case 6",
+                    );
+                    Ntcp2Error::Chacha
+                })?;
 
             // MixHash(ciphertext)
             encryption_ctx.noise_ctx().mix_hash(&message);
