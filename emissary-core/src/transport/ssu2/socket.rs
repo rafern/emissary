@@ -24,6 +24,7 @@ use crate::{
     router::context::RouterContext,
     runtime::{Counter, Gauge, Histogram, JoinSet, MetricsHandle, Runtime, UdpSocket},
     subsystem::SubsystemEvent,
+    util::hex_encode,
     transport::{
         ssu2::{
             detector::Detector,
@@ -457,8 +458,24 @@ impl<R: Runtime> Ssu2Socket<R> {
         mut datagram: Vec<u8>,
         address: SocketAddr,
     ) -> Result<Option<TransportEvent>, Ssu2Error> {
+        tracing::trace!(
+            target: LOG_TARGET,
+            ?address,
+            len = datagram.len(),
+            raw_header = %hex_encode(&datagram[..16]),
+            iv_tail = %hex_encode(&datagram[datagram.len().saturating_sub(24)..]),
+            "inbound ssu2 datagram",
+        );
+
         let mut reader = HeaderReader::new(self.intro_key, &mut datagram)?;
         let connection_id = reader.dst_id();
+
+        tracing::trace!(
+            target: LOG_TARGET,
+            ?address,
+            dst_id = %connection_id,
+            "ssu2 datagram dst_id",
+        );
 
         if let Some(tx) = self.sessions.get_mut(&connection_id) {
             match tx.try_send(Packet {
@@ -854,7 +871,9 @@ impl<R: Runtime> Ssu2Socket<R> {
         let Some(intro_key) = self.pending_outbound.get(&address) else {
             tracing::debug!(
                 target: LOG_TARGET,
-                message_type = ?datagram.get(12),
+                ?address,
+                deobfuscated_type = ?datagram.get(12),
+                raw_header = %hex_encode(&datagram[..16]),
                 "pending outbound connection does not exist",
             );
             return Err(Ssu2Error::NonExistentOutbound);

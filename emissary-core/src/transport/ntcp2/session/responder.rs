@@ -29,6 +29,7 @@ use crate::{
     error::Ntcp2Error,
     primitives::RouterInfo,
     runtime::Runtime,
+    util::hex_encode,
     transport::{
         ntcp2::{
             message::MessageBlock,
@@ -162,6 +163,16 @@ impl Responder {
         let mut aes = Aes::new_decryptor(&local_router_hash, &iv);
         let mut x = aes.decrypt(&message[..32]);
 
+        tracing::debug!(
+            target: LOG_TARGET,
+            x_ciphertext = %hex_encode(&message[..32]),
+            x_plaintext = %hex_encode(&x),
+            iv = %hex_encode(&iv),
+            router_hash = %hex_encode(&local_router_hash),
+            msb_set = (x[31] & 0x80) == 0x80,
+            "decrypted ntcp2 X",
+        );
+
         // high MSB in public key indicates that this connection is PQ
         let (size, encryption_ctx) = match (x[31] & 0x80) == 0x80 {
             false => {
@@ -275,7 +286,13 @@ impl Responder {
 
                 ChaChaPoly::new(&remote_key)
                     .decrypt_with_ad(kind.noise_ctx().state(), &mut encap_key)
-                    .map_err(|_| Ntcp2Error::Chacha)?;
+                    .map_err(|_| {
+                        tracing::debug!(
+                            target: LOG_TARGET,
+                            "chacha decryption failed (ml-kem encapsulation key)",
+                        );
+                        Ntcp2Error::Chacha
+                    })?;
                 kind.noise_ctx().mix_hash(&message[..encap_size]);
 
                 (1u64, encap_size, Some(encap_key))
@@ -298,7 +315,13 @@ impl Responder {
         let mut options = message[offset..].to_vec();
         ChaChaPoly::with_nonce(&remote_key, nonce)
             .decrypt_with_ad(encryption_ctx.noise_ctx().state(), &mut options)
-            .map_err(|_| Ntcp2Error::Chacha)?;
+            .map_err(|_| {
+                tracing::debug!(
+                    target: LOG_TARGET,
+                    "chacha decryption failed (initiator options)",
+                );
+                Ntcp2Error::Chacha
+            })?;
         remote_key.zeroize();
 
         // MixHash(encrypted payload)

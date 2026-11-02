@@ -25,6 +25,7 @@ use crate::{
     router::context::RouterContext,
     runtime::{MetricType, Runtime, UdpSocket},
     subsystem::SubsystemEvent,
+    util::hex_encode,
     transport::{ssu2::socket::Ssu2Socket, Transport, TransportEvent},
 };
 
@@ -167,6 +168,8 @@ impl<R: Runtime> Ssu2Transport<R> {
             ?allow_local,
             disable_pq = ?config.disable_pq,
             max_connections = ?config.max_connections,
+            intro_key = %hex_encode(&config.intro_key),
+            static_key = %hex_encode(&config.static_key),
             "starting ssu2",
         );
 

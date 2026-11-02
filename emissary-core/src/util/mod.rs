@@ -25,7 +25,9 @@ use crate::{
 use futures::FutureExt;
 use rand::CryptoRng;
 
+use alloc::string::String;
 use core::{
+    fmt::Write as _,
     future::Future,
     net::Ipv4Addr,
     pin::Pin,
@@ -166,6 +168,17 @@ impl<T: AsyncWrite + Unpin> AsyncWriteExt for T {
     fn close(&mut self) -> impl Future<Output = crate::Result<()>> {
         Close::new(self)
     }
+}
+
+/// Encode `bytes` as a lowercase hexadecimal string.
+pub fn hex_encode(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len() * 2);
+
+    for byte in bytes {
+        let _ = write!(out, "{byte:02x}");
+    }
+
+    out
 }
 
 /// Fisher-Yates shuffle.

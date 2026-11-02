@@ -27,6 +27,7 @@ use crate::{
         TcpListener,
     },
     subsystem::SubsystemEvent,
+    util::hex_encode,
     transport::{
         ntcp2::{
             listener::Ntcp2Listener,
@@ -181,6 +182,8 @@ impl<R: Runtime> Ntcp2Transport<R> {
             ?allow_local,
             allow_pq = ?(!config.disable_pq),
             max_connections = ?config.max_connections,
+            iv = %hex_encode(&config.iv),
+            router_hash = %hex_encode(&router_ctx.router_id().to_vec()),
             "starting ntcp2",
         );
 

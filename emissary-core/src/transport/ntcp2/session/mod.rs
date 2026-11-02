@@ -43,7 +43,7 @@ use crate::{
         ntcp2::session::{initiator::Initiator, responder::Responder},
         Direction,
     },
-    util::{is_global, AsyncReadExt, AsyncWriteExt},
+    util::{hex_encode, is_global, AsyncReadExt, AsyncWriteExt},
 };
 
 use bytes::Bytes;
@@ -648,7 +648,17 @@ impl<R: Runtime> SessionManager<R> {
 
         // read public key which is fixed 32-bytes long
         let mut message = vec![0u8; 32];
-        stream.read_exact::<R>(&mut message).await.map_err(|_| Ntcp2Error::IoError)?;
+        stream.read_exact::<R>(&mut message).await.map_err(|error| {
+            tracing::debug!(target: LOG_TARGET, ?address, ?error, "failed to read ntcp2 X");
+            Ntcp2Error::IoError
+        })?;
+
+        tracing::debug!(
+            target: LOG_TARGET,
+            ?address,
+            x_ciphertext = %hex_encode(&message),
+            "read ntcp2 X",
+        );
 
         // initialize responder state and get the size of payload
         //
@@ -663,21 +673,30 @@ impl<R: Runtime> SessionManager<R> {
         )?;
 
         let mut message = vec![0u8; payload_size];
-        stream.read_exact::<R>(&mut message).await.map_err(|_| Ntcp2Error::IoError)?;
+        stream.read_exact::<R>(&mut message).await.map_err(|error| {
+            tracing::debug!(target: LOG_TARGET, ?address, ?error, "failed to read ntcp2 session request payload");
+            Ntcp2Error::IoError
+        })?;
 
         // process `SessionRequest` and receive padding length
         let padding_len = responder.handle_session_request::<R>(message)?;
 
         // read padding and create session if the peer is accepted
         let mut padding = alloc::vec![0u8; padding_len];
-        stream.read_exact::<R>(&mut padding).await.map_err(|_| Ntcp2Error::IoError)?;
+        stream.read_exact::<R>(&mut padding).await.map_err(|error| {
+            tracing::debug!(target: LOG_TARGET, ?address, ?error, "failed to read ntcp2 padding");
+            Ntcp2Error::IoError
+        })?;
 
         let (message, message_len) = responder.create_session::<R>(padding)?;
         stream.write_all(&message).await.map_err(|_| Ntcp2Error::IoError)?;
 
         // read `SessionConfirmed` message and finalize session
         let mut message = alloc::vec![0u8; message_len];
-        stream.read_exact::<R>(&mut message).await.map_err(|_| Ntcp2Error::IoError)?;
+        stream.read_exact::<R>(&mut message).await.map_err(|error| {
+            tracing::debug!(target: LOG_TARGET, ?address, ?error, "failed to read ntcp2 SessionConfirmed");
+            Ntcp2Error::IoError
+        })?;
 
         match responder.finalize::<R>(message) {
             Ok((key_context, router_info, serialized, encryption)) => {
